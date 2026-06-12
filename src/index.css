@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+
+:root {
+  font-family: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #0F172A;
+  background-color: #F1F5F9;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #94A3B8 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #94A3B8;
+  border-radius: 3px;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-navy-300/50 shadow-sm;
+  }
+
+  .card-hover {
+    @apply card hover:shadow-md hover:border-amber-300/50 transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-amber-500 hover:bg-amber-600 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150 inline-flex items-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply border border-navy-300 hover:border-amber-400 hover:text-amber-600 text-navy-700 font-medium px-4 py-2 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 bg-white;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150 inline-flex items-center gap-2;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 border border-navy-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 transition-all duration-150 bg-white;
+  }
+
+  .select-field {
+    @apply w-full px-3 py-2 border border-navy-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 transition-all duration-150 bg-white appearance-none cursor-pointer;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-amber {
+    @apply badge bg-amber-100 text-amber-700;
+  }
+
+  .badge-emerald {
+    @apply badge bg-emerald-100 text-emerald-700;
+  }
+
+  .badge-navy {
+    @apply badge bg-navy-200 text-navy-700;
+  }
+
+  .badge-red {
+    @apply badge bg-red-100 text-red-700;
+  }
+
+  .section-title {
+    @apply text-lg font-bold text-navy-950;
+  }
+}
+
+@media print {
+  body {
+    background: white !important;
+  }
+  nav,
+  aside,
+  .print\\:hidden {
+    display: none !important;
+  }
+}
