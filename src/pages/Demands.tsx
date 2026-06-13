@@ -178,24 +178,26 @@ export default function Demands() {
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-navy-700 mb-1">预算下限</label>
+                  <label className="block text-sm font-medium text-navy-700 mb-1">预算下限（万元）</label>
                   <input
                     type="number"
                     className="input-field"
                     value={form.budgetMin}
                     onChange={(e) => updateField('budgetMin', e.target.value)}
                     min={0}
+                    step="0.01"
                     required
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-navy-700 mb-1">预算上限</label>
+                  <label className="block text-sm font-medium text-navy-700 mb-1">预算上限（万元）</label>
                   <input
                     type="number"
                     className="input-field"
                     value={form.budgetMax}
                     onChange={(e) => updateField('budgetMax', e.target.value)}
                     min={0}
+                    step="0.01"
                     required
                   />
                 </div>
@@ -330,12 +332,13 @@ export default function Demands() {
                     </td>
                     <td className="px-3 py-3">
                       {isEditing ? (
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 items-center">
                           <input
                             type="number"
                             className="input-field w-20"
                             value={editForm.budgetMin ?? 0}
                             onChange={(e) => updateEditField('budgetMin', Number(e.target.value))}
+                            step="0.01"
                           />
                           <span className="self-center">-</span>
                           <input
@@ -343,10 +346,12 @@ export default function Demands() {
                             className="input-field w-20"
                             value={editForm.budgetMax ?? 0}
                             onChange={(e) => updateEditField('budgetMax', Number(e.target.value))}
+                            step="0.01"
                           />
+                          <span className="self-center text-xs text-navy-500">万元</span>
                         </div>
                       ) : (
-                        `${d.budgetMin} - ${d.budgetMax}`
+                        `${d.budgetMin} - ${d.budgetMax} 万元`
                       )}
                     </td>
                     <td className="px-3 py-3 max-w-[200px] truncate">

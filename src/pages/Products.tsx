@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, ArrowRight } from 'lucide-react';
 import { allTags } from '@/data/mockProducts';
 import { useAppStore } from '@/store/useAppStore';
 import type { Product, MatchResult } from '@/types';
 
 export default function Products() {
-  const { products, selectedTags, setSelectedTags, selectedDemandId, addMatchResult } = useAppStore();
+  const navigate = useNavigate();
+  const { products, selectedTags, setSelectedTags, selectedDemandId, addMatchResult, findMatchResult, getDemandById, calculateMatchScore } = useAppStore();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'info' | 'success' | 'warning' } | null>(null);
 
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
@@ -24,22 +27,44 @@ export default function Products() {
 
   const handleAddCandidate = (product: Product) => {
     if (!selectedDemandId) return;
-    const result: MatchResult = {
-      id: crypto.randomUUID(),
-      demandId: selectedDemandId,
-      productId: product.id,
-      scoreDataScope: 0,
-      scoreFrequency: 0,
-      scorePrice: 0,
-      scoreCompliance: 0,
-      totalScore: 0,
-      markedPrice: '',
-      markedDelivery: '',
-      markedRestrictions: '',
-      status: 'candidate',
-    };
+
+    const existing = findMatchResult(selectedDemandId, product.id);
+    if (existing) {
+      setToast({ message: '该产品已在候选列表中，正在跳转至匹配工作台...', type: 'warning' });
+      setTimeout(() => {
+        navigate(`/matching?demandId=${selectedDemandId}`);
+        setToast(null);
+      }, 1500);
+      return;
+    }
+
+    const demand = getDemandById(selectedDemandId);
+    let result: MatchResult;
+
+    if (demand) {
+      result = calculateMatchScore(demand, product);
+      setToast({ message: `已智能计算匹配分 ${result.totalScore}，成功加入候选！`, type: 'success' });
+    } else {
+      result = {
+        id: crypto.randomUUID(),
+        demandId: selectedDemandId,
+        productId: product.id,
+        scoreDataScope: 0,
+        scoreFrequency: 0,
+        scorePrice: 0,
+        scoreCompliance: 0,
+        totalScore: 0,
+        markedPrice: '',
+        markedDelivery: '',
+        markedRestrictions: '',
+        status: 'candidate',
+      };
+      setToast({ message: '已成功加入候选！', type: 'success' });
+    }
+
     addMatchResult(result);
     setSelectedProduct(null);
+    setTimeout(() => setToast(null), 3000);
   };
 
   return (
@@ -84,7 +109,7 @@ export default function Products() {
               ))}
             </div>
             <p className="text-sm text-navy-700 line-clamp-2 mt-2">{product.description}</p>
-            <p className="text-amber-600 font-bold mt-2">¥{product.price.toLocaleString()}</p>
+            <p className="text-amber-600 font-bold mt-2">¥{(product.price / 10000).toFixed(2)} 万元</p>
             <p className="text-navy-600 text-sm">{product.deliveryCycle}</p>
             <button
               onClick={() => setSelectedProduct(product)}
@@ -135,7 +160,7 @@ export default function Products() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-navy-900">价格</p>
-                  <p className="text-amber-600 font-bold">¥{selectedProduct.price.toLocaleString()}</p>
+                  <p className="text-amber-600 font-bold">¥{(selectedProduct.price / 10000).toFixed(2)} 万元</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-navy-900">交付周期</p>
@@ -166,6 +191,17 @@ export default function Products() {
             </div>
           </div>
         </>
+      )}
+
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-pulse ${
+          toast.type === 'success' ? 'bg-emerald-500 text-white' :
+          toast.type === 'warning' ? 'bg-amber-500 text-white' :
+          'bg-navy-700 text-white'
+        }`}>
+          {toast.type === 'success' && <ArrowRight className="w-4 h-4" />}
+          {toast.message}
+        </div>
       )}
     </div>
   );

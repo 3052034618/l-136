@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Star, Tag, FileText, Trash2, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Star, Tag, FileText, Trash2, Plus, Sparkles, Zap } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import type { MatchResult, MatchStatus } from '@/types';
 
@@ -42,11 +42,18 @@ export default function Matching() {
     updateMatchResult,
     deleteMatchResult,
     getProductById,
+    getDemandById,
+    calculateMatchScore,
+    addBulkMatchResults,
+    findMatchResult,
   } = useAppStore();
 
   const [scoringTarget, setScoringTarget] = useState<MatchResult | null>(null);
   const [markingTarget, setMarkingTarget] = useState<MatchResult | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [smartRecommendOpen, setSmartRecommendOpen] = useState(false);
+  const [recommendThreshold, setRecommendThreshold] = useState(60);
+  const [toast, setToast] = useState<{ message: string; type: 'info' | 'success' | 'warning' } | null>(null);
 
   const [scores, setScores] = useState({ scoreDataScope: 0, scoreFrequency: 0, scorePrice: 0, scoreCompliance: 0 });
   const [markedPrice, setMarkedPrice] = useState('');
@@ -79,6 +86,37 @@ export default function Matching() {
     () => candidates.filter((c) => c.status === 'shortlisted' || c.status === 'recommended'),
     [candidates]
   );
+
+  const smartRecommendations = useMemo(() => {
+    if (!currentDemand) return [];
+    return products
+      .map((product) => {
+        const existing = findMatchResult(currentDemand.id, product.id);
+        return {
+          product,
+          matchResult: existing || calculateMatchScore(currentDemand, product),
+          isExisting: !!existing,
+        };
+      })
+      .filter((item) => item.matchResult.totalScore >= recommendThreshold)
+      .sort((a, b) => b.matchResult.totalScore - a.matchResult.totalScore);
+  }, [currentDemand, products, recommendThreshold, calculateMatchScore, findMatchResult]);
+
+  const handleAddAllHighScore = useCallback(() => {
+    if (!currentDemand) return;
+    const toAdd = smartRecommendations
+      .filter((item) => !item.isExisting)
+      .map((item) => item.matchResult);
+    if (toAdd.length === 0) {
+      setToast({ message: '没有新的产品可添加，所有推荐产品已在候选列表中', type: 'warning' });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    addBulkMatchResults(toAdd);
+    setToast({ message: `已成功添加 ${toAdd.length} 个高分产品到候选列表！`, type: 'success' });
+    setTimeout(() => setToast(null), 3000);
+    setSmartRecommendOpen(false);
+  }, [currentDemand, smartRecommendations, addBulkMatchResults]);
 
   const handleDemandChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -161,6 +199,14 @@ export default function Matching() {
             <Plus className="w-4 h-4" />
             从产品库添加
           </button>
+          <button
+            className="btn-primary bg-emerald-500 hover:bg-emerald-600"
+            onClick={() => setSmartRecommendOpen(true)}
+            disabled={!currentDemand}
+          >
+            <Sparkles className="w-4 h-4" />
+            智能推荐
+          </button>
         </div>
 
         {currentDemand && (
@@ -171,7 +217,7 @@ export default function Matching() {
             </div>
             <div>
               <span className="font-medium text-navy-900">预算范围：</span>
-              {currentDemand.budgetMin}万 ~ {currentDemand.budgetMax}万
+              {currentDemand.budgetMin} ~ {currentDemand.budgetMax} 万元
             </div>
             <div>
               <span className="font-medium text-navy-900">合规要求：</span>
@@ -404,6 +450,117 @@ export default function Matching() {
               <button className="btn-primary" onClick={saveMarking}>保存</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {smartRecommendOpen && currentDemand && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/50" onClick={() => setSmartRecommendOpen(false)}>
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 space-y-5 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="section-title flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-emerald-500" />
+                智能匹配推荐
+              </h3>
+              <span className="text-sm text-navy-600">基于需求：{currentDemand.buyerName}</span>
+            </div>
+
+            <div className="flex items-center gap-4 p-4 bg-navy-100 rounded-lg">
+              <label className="text-sm font-medium text-navy-700 whitespace-nowrap">最低匹配分：</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={recommendThreshold}
+                onChange={(e) => setRecommendThreshold(Number(e.target.value))}
+                className="flex-1 accent-emerald-500"
+              />
+              <span className="font-bold text-emerald-600 text-lg w-12 text-right">{recommendThreshold}分</span>
+            </div>
+
+            {smartRecommendations.length === 0 ? (
+              <div className="text-center py-12 text-navy-500">
+                <p>当前没有达到 {recommendThreshold} 分的产品</p>
+                <p className="text-sm mt-1">请尝试降低最低匹配分门槛</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-navy-300 text-left">
+                        <th className="px-3 py-2 font-medium text-navy-700">产品名</th>
+                        <th className="px-3 py-2 font-medium text-navy-700">供应商</th>
+                        <th className="px-3 py-2 font-medium text-navy-700">价格</th>
+                        <th className="px-3 py-2 font-medium text-navy-700">数据范围分</th>
+                        <th className="px-3 py-2 font-medium text-navy-700">更新频率分</th>
+                        <th className="px-3 py-2 font-medium text-navy-700">价格分</th>
+                        <th className="px-3 py-2 font-medium text-navy-700">合规分</th>
+                        <th className="px-3 py-2 font-medium text-navy-700">总分</th>
+                        <th className="px-3 py-2 font-medium text-navy-700">状态</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {smartRecommendations.map(({ product, matchResult, isExisting }) => (
+                        <tr key={product.id} className="border-b border-navy-300/50">
+                          <td className="px-3 py-2 font-medium text-navy-900">{product.name}</td>
+                          <td className="px-3 py-2 text-navy-600">{product.supplier}</td>
+                          <td className="px-3 py-2 text-amber-600 font-medium">¥{(product.price / 10000).toFixed(2)} 万元</td>
+                          <td className="px-3 py-2 text-center">{matchResult.scoreDataScope}</td>
+                          <td className="px-3 py-2 text-center">{matchResult.scoreFrequency}</td>
+                          <td className="px-3 py-2 text-center">{matchResult.scorePrice}</td>
+                          <td className="px-3 py-2 text-center">{matchResult.scoreCompliance}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`font-bold ${scoreColor(matchResult.totalScore)}`}>
+                              {matchResult.totalScore}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {isExisting ? (
+                              <span className="badge-emerald">已加入</span>
+                            ) : (
+                              <span className="badge-amber">待添加</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t border-navy-300/50">
+                  <span className="text-sm text-navy-600">
+                    共 {smartRecommendations.length} 个推荐产品，
+                    其中 {smartRecommendations.filter((x) => x.isExisting).length} 个已在候选列表
+                  </span>
+                  <div className="flex gap-3">
+                    <button className="btn-secondary" onClick={() => setSmartRecommendOpen(false)}>
+                      取消
+                    </button>
+                    <button
+                      className="btn-primary bg-emerald-500 hover:bg-emerald-600"
+                      onClick={handleAddAllHighScore}
+                    >
+                      <Zap className="w-4 h-4" />
+                      一键添加全部高分产品
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 ${
+          toast.type === 'success' ? 'bg-emerald-500 text-white' :
+          toast.type === 'warning' ? 'bg-amber-500 text-white' :
+          'bg-navy-700 text-white'
+        }`}>
+          {toast.message}
         </div>
       )}
     </div>
